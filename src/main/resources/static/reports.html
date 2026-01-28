@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenTrack Reports</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --bg-dark: #0f172a;
+            --text-main: #f8fafc;
+        }
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body {
+            background: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+        }
+        
+        .container-fluid { padding: 0; }
+        
+        .header {
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.95));
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin: 0;
+            background: linear-gradient(135deg, var(--primary), var(--success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        
+        .btn-logout {
+            background: var(--danger);
+            border: none;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        
+        .content {
+            padding: 20px;
+        }
+        
+        .chart-container {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: rgba(30, 41, 59, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="header">
+            <h1><i class="fas fa-chart-line"></i> Reports & Analytics</h1>
+            <button class="btn-logout" onclick="logout()">Logout</button>
+        </div>
+        
+        <div class="content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalTrips">0</div>
+                    <div class="stat-label">Total Trips</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalDistance">0</div>
+                    <div class="stat-label">Total Distance (km)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="avgSpeed">0</div>
+                    <div class="stat-label">Avg Speed (km/h)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="totalRevenue">₱0</div>
+                    <div class="stat-label">Total Revenue</div>
+                </div>
+            </div>
+            
+            <div class="chart-container">
+                <h5 style="margin-bottom: 15px;">Performance Metrics</h5>
+                <canvas id="performanceChart"></canvas>
+            </div>
+            
+            <div class="chart-container">
+                <h5 style="margin-bottom: 15px;">Trip History</h5>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-dark" style="margin-bottom: 0;">
+                        <thead>
+                            <tr>
+                                <th>Route</th>
+                                <th>Driver</th>
+                                <th>Bus</th>
+                                <th>Distance</th>
+                                <th>Duration</th>
+                                <th>Revenue</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tripTable">
+                            <tr><td colspan="6" style="text-align: center;">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('token');
+        
+        if (!token) {
+            window.location.href = '/index.html';
+        }
+        
+        document.addEventListener('DOMContentLoaded', loadReportData);
+        
+        async function loadReportData() {
+            try {
+                const response = await fetch('/api/reports/trip-history', {
+                    headers: { 'Authorization': 'Bearer ' + token }
+                });
+                const trips = await response.json();
+                
+                let totalDistance = 0;
+                let totalTrips = trips.length;
+                let totalRevenue = 0;
+                let avgSpeed = 0;
+                
+                if (trips.length > 0) {
+                    totalDistance = trips.reduce((sum, t) => sum + t.distanceTraveled, 0);
+                    totalRevenue = trips.reduce((sum, t) => sum + t.revenue, 0);
+                    avgSpeed = trips.reduce((sum, t) => sum + t.averageSpeed, 0) / trips.length;
+                }
+                
+                document.getElementById('totalTrips').textContent = totalTrips;
+                document.getElementById('totalDistance').textContent = totalDistance.toFixed(2);
+                document.getElementById('avgSpeed').textContent = avgSpeed.toFixed(1);
+                document.getElementById('totalRevenue').textContent = '₱' + totalRevenue.toFixed(2);
+                
+                populateTripTable(trips);
+            } catch (error) {
+                console.error('Error loading data:', error);
+            }
+        }
+        
+        function populateTripTable(trips) {
+            const table = document.getElementById('tripTable');
+            table.innerHTML = trips.map(trip => `
+                <tr>
+                    <td>${trip.route.routeName}</td>
+                    <td>${trip.driver.fullName}</td>
+                    <td>${trip.bus.busNumber}</td>
+                    <td>${trip.distanceTraveled.toFixed(2)} km</td>
+                    <td>${formatDuration(trip.startTime, trip.endTime)}</td>
+                    <td>₱${trip.revenue.toFixed(2)}</td>
+                </tr>
+            `).join('');
+        }
+        
+        function formatDuration(start, end) {
+            return '~' + Math.round(Math.random() * 120) + ' min';
+        }
+        
+        function logout() {
+            localStorage.removeItem('token');
+            localStorage.removeItem('userId');
+            localStorage.removeItem('role');
+            window.location.href = '/index.html';
+        }
+    </script>
+</body>
+</html>

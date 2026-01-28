@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: opentrack-system
+    env: java
+    buildCommand: mvn clean package -DskipTests
+    startCommand: java -Xmx512m -Xms256m -jar target/opentrack-system-1.0.0.jar --spring.profiles.active=production
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: opentrack-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JAVA_OPTS
+        value: -Xmx512m -Xms256m
+
+databases:
+  - name: opentrack-db
+    databaseName: opentrack_db
+    user: opentrack_user
+    plan: free
